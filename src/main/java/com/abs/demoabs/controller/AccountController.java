@@ -16,6 +16,6 @@ public class AccountController {
 
     @PostMapping("/transfer")
     public void transferMoney(TransferMoneyDto transferMoneyDto){
-
+        accountService.transferMoney(transferMoneyDto);
     }
 }

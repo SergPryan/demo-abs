@@ -1,11 +1,8 @@
 package com.abs.demoabs.repository;
 
-import org.springframework.stereotype.Repository;
+import com.abs.demoabs.entity.Account;
+import org.springframework.data.jpa.repository.JpaRepository;
 
-@Repository
-public class AccountRepository {
 
-    public void transferMoney(){
-
-    }
+public interface AccountRepository extends JpaRepository<Account, Long> {
 }
