@@ -29,7 +29,13 @@ public class AccountService {
                 throw new RuntimeException("Account with id = " + sourceId + " not available");
             }
         }
-        if (source.isPresent() && target.isPresent()) {
+        if (source.isPresent() & target.isPresent()) {
+            if (!source.get().isAvailable()) {
+                throw new RuntimeException("Account not available, id = " + source.get().getId());
+            }
+            if (!target.get().isAvailable()) {
+                throw new RuntimeException("Account not available, id = " + target.get().getId());
+            }
             if (source.get().getAmount() < amount) {
                 throw new RuntimeException("Not enough money in bank account with id = " + sourceId);
             } else {
@@ -41,6 +47,51 @@ public class AccountService {
             }
         } else {
             throw new RuntimeException("Not find accounts with targetId = " + targetIt + " and sourceId = " + sourceId);
+        }
+    }
+
+    @Transactional
+    public void putMoney(Long id, Double count) {
+        Optional<Account> account = accountRepository.findById(id);
+        if (account.isPresent()) {
+            if (account.get().isAvailable()) {
+                account.get().setAmount(account.get().getAmount() + count);
+                accountRepository.saveAndFlush(account.get());
+            } else {
+                throw new RuntimeException("Account not available, id = " + id);
+            }
+        } else {
+            throw new RuntimeException("Account not find, id = " + id);
+        }
+    }
+
+    @Transactional
+    public void takeMoney(Long id, Double count) {
+        Optional<Account> account = accountRepository.findById(id);
+        if (account.isPresent()) {
+            if (account.get().getAmount() < count) {
+                throw new RuntimeException("Account with id = " + id + " not enough money");
+            } else {
+                if (account.get().isAvailable()) {
+                    account.get().setAmount(account.get().getAmount() - count);
+                    accountRepository.saveAndFlush(account.get());
+                } else {
+                    throw new RuntimeException("Account not available, id = " + id);
+                }
+            }
+        } else {
+            throw new RuntimeException("Account not find, id = " + id);
+        }
+    }
+
+    @Transactional
+    public void blockAccount(Long id) {
+        Optional<Account> account = accountRepository.findById(id);
+        if (account.isPresent()) {
+            account.get().setAvailable(false);
+            accountRepository.saveAndFlush(account.get());
+        } else {
+            throw new RuntimeException("Account not find, id = " + id);
         }
     }
 
