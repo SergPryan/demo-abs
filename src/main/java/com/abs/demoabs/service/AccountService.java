@@ -1,10 +1,12 @@
 package com.abs.demoabs.service;
 
-import com.abs.demoabs.dto.TransferMoneyDto;
 import com.abs.demoabs.entity.Account;
 import com.abs.demoabs.repository.AccountRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
@@ -12,86 +14,100 @@ import java.util.Optional;
 @Service
 public class AccountService {
 
+    private static Logger log = LoggerFactory.getLogger(AccountService.class);
+
     @Autowired
     AccountRepository accountRepository;
 
-    @Transactional
-    public void transferMoney(TransferMoneyDto transferMoneyDto) {
-        transferMoney(transferMoneyDto.getSourceId(), transferMoneyDto.getTargetId(), transferMoneyDto.getAmount());
-    }
-
-    @Transactional
-    public void transferMoney(Long sourceId, Long targetIt, Double amount) {
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.SERIALIZABLE)
+    public String transferMoney(Long sourceId, Long targetId, Double amount) {
+        StringBuilder sb = new StringBuilder();
         Optional<Account> source = accountRepository.findById(sourceId);
-        Optional<Account> target = accountRepository.findById(targetIt);
-        if (source.isPresent()) {
-            if (!source.get().isAvailable()) {
-                throw new RuntimeException("Account with id = " + sourceId + " not available");
-            }
+        Optional<Account> target = accountRepository.findById(targetId);
+        if (source.isPresent() && !source.get().isAvailable()) {
+            sb.append("Account with id = ").append(sourceId).append(" not available");
+            log.error(sb.toString());
+            return sb.toString();
         }
-        if (source.isPresent() & target.isPresent()) {
-            if (!source.get().isAvailable()) {
-                throw new RuntimeException("Account not available, id = " + source.get().getId());
-            }
-            if (!target.get().isAvailable()) {
-                throw new RuntimeException("Account not available, id = " + target.get().getId());
-            }
+        if (target.isPresent() && !target.get().isAvailable()) {
+            sb.append("Account with id = ").append(sourceId).append(" not available");
+            log.error(sb.toString());
+            return sb.toString();
+        }
+        if (source.isPresent() && target.isPresent()) {
             if (source.get().getAmount() < amount) {
-                throw new RuntimeException("Not enough money in bank account with id = " + sourceId);
+                sb.append("Not enough money in bank account with id = ").append(sourceId);
+                log.error(sb.toString());
+                return sb.toString();
             } else {
                 source.get().setAmount(source.get().getAmount() - amount);
                 target.get().setAmount(target.get().getAmount() + amount);
                 accountRepository.save(source.get());
                 accountRepository.save(target.get());
                 accountRepository.flush();
+                sb.append("success transfer money, sourceId = ").append(sourceId).append(", targetId = ").append(targetId)
+                        .append(", amount").append(amount);
+                log.info(sb.toString());
+                return sb.toString();
             }
         } else {
-            throw new RuntimeException("Not find accounts with targetId = " + targetIt + " and sourceId = " + sourceId);
+            sb.append("Not find accounts with targetId = ").append(targetId).append(" and sourceId = ").append(sourceId);
+            log.error(sb.toString());
+            return sb.toString();
         }
     }
 
-    @Transactional
-    public void putMoney(Long id, Double count) {
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
+    public boolean putMoney(Long id, Double count) {
         Optional<Account> account = accountRepository.findById(id);
         if (account.isPresent()) {
             if (account.get().isAvailable()) {
                 account.get().setAmount(account.get().getAmount() + count);
                 accountRepository.saveAndFlush(account.get());
+                return true;
             } else {
-                throw new RuntimeException("Account not available, id = " + id);
+                log.error("Account not available, id = " + id);
+                return false;
             }
         } else {
-            throw new RuntimeException("Account not find, id = " + id);
+            log.error("Account not find, id = " + id);
+            return false;
         }
     }
 
-    @Transactional
-    public void takeMoney(Long id, Double count) {
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.SERIALIZABLE)
+    public boolean takeMoney(Long id, Double count) {
         Optional<Account> account = accountRepository.findById(id);
         if (account.isPresent()) {
             if (account.get().getAmount() < count) {
-                throw new RuntimeException("Account with id = " + id + " not enough money");
+                log.error("Account with id = " + id + " not enough money");
+                return false;
             } else {
                 if (account.get().isAvailable()) {
                     account.get().setAmount(account.get().getAmount() - count);
                     accountRepository.saveAndFlush(account.get());
+                    return true;
                 } else {
-                    throw new RuntimeException("Account not available, id = " + id);
+                    log.error("Account not available, id = " + id);
+                    return false;
                 }
             }
         } else {
-            throw new RuntimeException("Account not find, id = " + id);
+            log.error("Account not find, id = " + id);
+            return false;
         }
     }
 
-    @Transactional
-    public void blockAccount(Long id) {
+    @Transactional(rollbackFor = Exception.class)
+    public boolean blockAccount(Long id) {
         Optional<Account> account = accountRepository.findById(id);
         if (account.isPresent()) {
             account.get().setAvailable(false);
             accountRepository.saveAndFlush(account.get());
+            return true;
         } else {
-            throw new RuntimeException("Account not find, id = " + id);
+            log.error("Account not find, id = " + id);
+            return false;
         }
     }
 

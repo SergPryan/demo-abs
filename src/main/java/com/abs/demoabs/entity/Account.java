@@ -12,6 +12,13 @@ public class Account {
     @Column(precision = 2)
     private Double amount;
 
+    public Account() { }
+
+    public Account(Double amount, boolean isAvailable) {
+        this.amount = amount;
+        this.isAvailable = isAvailable;
+    }
+
     private boolean isAvailable;
 
     public Long getId() {
